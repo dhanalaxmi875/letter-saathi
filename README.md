@@ -56,6 +56,7 @@ Keep `.env` private; do not commit API keys.
 - Requests extraction and explanation together from Gemma, parses JSON defensively, and retries once if the response is malformed.
 - Validates and fills response defaults, preserves human verification, and warns about missing deadlines, placeholders, and uncertain details.
 - Keeps checklist checkboxes in the browser only. ElevenLabs audio is optional and degrades gracefully when not configured.
+- Includes a chat interface for asking follow-up questions about the analyzed letter via POST /api/ask.
 
 ## Known limitations
 

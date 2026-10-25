@@ -1,13 +1,21 @@
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
+from pydantic import BaseModel, Field
 
-from app.services.gemma import analyze_document
+from app.services.gemma import analyze_document, ask_question
 from app.services.tts import synthesize
 from app.services.validator import validate_result
 
 router = APIRouter()
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 ALLOWED_TYPES = {"image/png", "image/jpeg", "application/pdf"}
+
+
+class AskRequest(BaseModel):
+    analysis: dict = Field(..., description="The full JSON object returned by /api/analyze")
+    history: list = Field(default_factory=list, description="Chat history with role and text")
+    question: str = Field(..., min_length=1, max_length=500, description="User's question")
+    language: str = Field(..., pattern="^(en|te|hi)$", description="Language code")
 
 
 @router.get("/health")
@@ -38,3 +46,9 @@ async def tts(payload: dict):
         raise HTTPException(status_code=400, detail="Provide text and a supported language.")
     audio = await synthesize(text[:1500], language)
     return Response(content=audio, media_type="audio/mpeg")
+
+
+@router.post("/ask")
+async def ask(payload: AskRequest):
+    result = await ask_question(payload.analysis, payload.history, payload.question, payload.language)
+    return result

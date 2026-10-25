@@ -10,6 +10,53 @@ LANGUAGES = {"en": "English", "te": "Telugu", "hi": "Hindi"}
 SCHEMA = '''{"document_type":"string","purpose":"string","deadline":{"value":null,"status":"found | missing_from_provided_text | unclear"},"important_facts":["string"],"required_actions":["string"],"required_documents":["string"],"amounts":["string"],"consequences":["string"],"simple_explanation":"string","human_verification_required":true,"uncertainties":["string"],"warnings":[]}'''
 
 
+async def ask_question(analysis: dict, history: list, question: str, language: str) -> dict:
+    if not os.getenv("GEMINI_API_KEY"):
+        raise HTTPException(status_code=503, detail="Document analysis is not configured. Set GEMINI_API_KEY on the server.")
+    if not question or not question.strip():
+        raise HTTPException(status_code=400, detail="Question cannot be empty.")
+    if len(question) > 500:
+        raise HTTPException(status_code=400, detail="Question is too long. Maximum 500 characters.")
+    if language not in LANGUAGES:
+        raise HTTPException(status_code=400, detail="Choose English, Telugu, or Hindi.")
+    try:
+        client = genai.Client()
+        history_trimmed = history[-6:] if len(history) > 6 else history
+        history_text = "\n".join([f"{turn['role']}: {turn['text']}" for turn in history_trimmed])
+        prompt = f'''You help a person understand ONE official letter. Answer only from the LETTER FACTS below.
+
+LETTER FACTS:
+{json.dumps(analysis, ensure_ascii=False)}
+
+CHAT HISTORY:
+{history_text if history_text else "(no previous conversation)"}
+
+USER QUESTION:
+{question}
+
+Rules:
+- Answer only from the letter facts. If the answer is not in them, start your answer with "[NOT_IN_LETTER]" and then say clearly that the letter does not say this, and suggest contacting the issuing office. Never invent dates, amounts, penalties, legal outcomes, or procedures.
+- For "what happens if I miss the deadline" type questions, only state consequences listed in the facts. Otherwise say the letter does not specify, and advise contacting the office.
+- Do not give legal, medical, or financial advice beyond what the letter states.
+- Reply in {LANGUAGES[language]} in very simple words, 2-4 short sentences. Keep names, dates, amounts, and reference numbers exactly as in the facts.
+- End with nothing extra (no markdown, no preamble).
+- If the question is unrelated to the letter, politely say you can only help with this letter.'''
+        response = client.models.generate_content(
+            model=os.getenv("GEMMA_MODEL", "gemma-4-31b-it"),
+            contents=prompt,
+        )
+        answer = (response.text or "").strip()
+        grounded = True
+        if answer.startswith("[NOT_IN_LETTER]"):
+            answer = answer.replace("[NOT_IN_LETTER]", "").strip()
+            grounded = False
+        return {"answer": answer, "grounded": grounded}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Could not answer the question. Please try again.") from exc
+
+
 def _extract_json(text: str) -> dict:
     text = re.sub(r"^\s*```(?:json)?\s*|\s*```\s*$", "", text.strip(), flags=re.I)
     start, end = text.find("{"), text.rfind("}")
