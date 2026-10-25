@@ -23,12 +23,22 @@ export async function readAloud(text, language) {
 }
 
 export async function askQuestion(analysis, history, question, language) {
-  const response = await fetch('/api/ask', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ analysis, history, question, language }),
-  })
-  const payload = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(payload.detail || 'Could not answer the question. Please try again.')
-  return payload
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 120000)
+  try {
+    const response = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ analysis, history, question, language }),
+      signal: controller.signal,
+    })
+    clearTimeout(timeoutId)
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(payload.detail || 'Could not answer the question. Please try again.')
+    return payload
+  } catch (err) {
+    clearTimeout(timeoutId)
+    if (err.name === 'AbortError') throw new Error('Request timed out. Please try again.')
+    throw err
+  }
 }
