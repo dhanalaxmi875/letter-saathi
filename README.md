@@ -35,7 +35,7 @@ Set these in `backend/.env` locally and in the DigitalOcean App Platform service
 | Variable | Required | Purpose |
 |---|---|---|
 | `GEMINI_API_KEY` | For analysis | Gemini API key used by `google-genai` |
-| `GEMMA_MODEL` | No | Model name; defaults to `gemma-4-31b-it` (the model must be available to your API key; `gemma-4-26b-a4b-it` is an alternate) |
+| `GEMMA_MODEL` | No | Model name; defaults to `gemini-2.0-flash-exp` (the model must be available to your API key) |
 | `ELEVENLABS_API_KEY` | Optional | Enables text-to-speech |
 | `ELEVENLABS_VOICE_ID` | Optional | ElevenLabs voice ID; audio stays unavailable until configured |
 | `ELEVENLABS_MODEL` | No | ElevenLabs model; defaults to `eleven_multilingual_v2` |
